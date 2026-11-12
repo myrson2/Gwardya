@@ -1,0 +1,26 @@
+# --- Python / uv -------------------------------------------------------------
+.venv/
+__pycache__/
+*.py[cod]
+*.egg-info/
+.pytest_cache/
+.ruff_cache/
+.coverage
+htmlcov/
+
+# --- Secrets -----------------------------------------------------------------
+# Constitution §2.5: only .env.example is committed.
+.env
+.env.*
+!.env.example
+
+# --- Frontend (M2) -----------------------------------------------------------
+node_modules/
+dist/
+.vite/
+
+# --- Editors / OS ------------------------------------------------------------
+.vscode/
+.idea/
+.DS_Store
+Thumbs.db

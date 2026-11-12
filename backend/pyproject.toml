@@ -1,0 +1,53 @@
+[project]
+name = "gwardya-backend"
+version = "0.1.0"
+description = "Support-ticket app with data-driven RBAC (learning project)"
+requires-python = ">=3.14"
+dependencies = [
+    # API framework & server
+    "fastapi==0.162.5",
+    "uvicorn[standard]==0.54.0",
+    # Database — SQLAlchemy stays on the 2.0.x line per specs/tech-stack.md
+    "sqlalchemy[asyncio]==2.0.57",
+    "asyncmy==0.2.18",
+    # asyncmy needs this for MySQL 8's caching_sha2_password auth over TCP.
+    "cryptography==50.0.2",
+    # Validation & configuration
+    "pydantic==2.14.3",
+    "pydantic-settings==2.16.2",
+    "email-validator==2.3.0",
+    # Auth & security
+    "PyJWT==2.15.1",
+    "pwdlib[bcrypt]==0.3.1",
+    "bcrypt==5.0.0",
+]
+
+[dependency-groups]
+dev = [
+    "pytest==9.2.0",
+    "pytest-asyncio==1.4.1.post1",
+    "httpx==0.28.1",
+    "ruff==0.17.4",
+]
+
+# This is an application, not a distributable library: don't build/install it
+# as a package. `uv run uvicorn app.main:app` runs straight from source.
+[tool.uv]
+package = false
+
+[tool.pytest.ini_options]
+asyncio_mode = "auto"
+asyncio_default_fixture_loop_scope = "function"
+testpaths = ["tests"]
+pythonpath = ["."]
+
+[tool.ruff]
+line-length = 100
+target-version = "py314"
+src = ["."]
+
+[tool.ruff.lint]
+select = ["E", "F", "I", "UP", "B", "ASYNC"]
+
+[tool.ruff.format]
+quote-style = "double"

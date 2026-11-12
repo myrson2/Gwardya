@@ -3,8 +3,8 @@
 > A learning-first support-ticket app that enforces real role-based access control — one
 > identity, data-driven roles and permissions, ownership-aware reads, and revocable JWT sessions.
 
-**Status:** Specifications ratified (v1.1) · Development starts at Milestone 0 · No application
-code yet.
+**Status:** Specifications ratified (v1.1) · **M1-0 complete** — backend scaffold boots against
+real MySQL inside WSL2 (`/health`, `/health/db`, `/docs`).
 
 ---
 

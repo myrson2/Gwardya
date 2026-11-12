@@ -7,13 +7,13 @@ version families verified on this machine.
 
 | Layer | Technology | Version | Rationale |
 |---|---|---|---|
-| Language (backend) | Python | 3.14.5 (`py` launcher) | Installed; async stack has cp314 wheels |
-| Package manager | uv | 0.12.9 | Fast, lockfile-based, already installed |
+| Language (backend) | Python | 3.14.x (uv-managed, WSL2) | Async stack has cp314 wheels |
+| Package manager | uv | 0.13.x | Fast, lockfile-based, already installed |
 | API framework | FastAPI | latest stable, pinned | Async-native; dependency injection fits permission gates |
 | ASGI server | Uvicorn | latest stable, pinned | Standard local runner |
 | ORM | SQLAlchemy | 2.0.x (async) | `AsyncSession`, explicit loading, typed models |
-| DB driver | asyncmy | 0.2.x | Async MySQL; cp314 Windows wheels confirmed |
-| Database | MySQL | 8.0 (service `MySQL80`) | Already running locally; realistic SQL |
+| DB driver | asyncmy | 0.2.x | Async MySQL; Linux (cp314) wheels used |
+| Database | MySQL | 8.0 (inside WSL2) | Realistic SQL; isolated from Windows `MySQL80` |
 | Validation | Pydantic / pydantic-settings | 2.x | Request/response schemas, typed config |
 | JWT | PyJWT | 2.x | Maintained, minimal, HS256 |
 | Password hashing | pwdlib[bcrypt] | 0.3.x | Maintained wrapper; bcrypt algorithm (cost 12) |
@@ -29,9 +29,16 @@ validation, never silently truncated.
 
 **Environment notes**
 
-- `python` is not on PATH; use `py` or the uv-managed venv.
-- `npm.ps1` is blocked by execution policy; use `npm.cmd`.
-- MySQL client: `C:\Program Files\MySQL\MySQL Server 8.0\bin\mysql.exe`.
+- The backend runs inside **WSL2 (Ubuntu 24.04)**. Run every `uv`/`pytest`/`uvicorn` command
+  there, never from Windows PowerShell — Windows Smart App Control blocks unsigned
+  `pydantic_core`/`asyncmy` binaries, and a Windows `uv run` would rebuild `.venv` as a Windows venv.
+- Python is uv-managed in WSL (3.14.x). `uv` lives at `~/.local/bin/uv`.
+- MySQL 8 runs inside WSL as systemd service `mysql`, bound to `127.0.0.1:3307`.
+  Port 3307 (not 3306) because WSL uses mirrored networking and Windows `MySQL80` owns 3306/33060.
+- WSL reaches Windows-shared loopback over IPv4 only: browse the API at
+  `http://127.0.0.1:8001`, **not** `http://localhost:8001` (Windows resolves `localhost` to `::1`).
+- MySQL is forced to UTC (`default-time-zone = "+00:00"`).
+- Frontend commands run on Windows; `npm.ps1` is blocked by execution policy, so use `npm.cmd`.
 
 ## Layer Boundaries
 
