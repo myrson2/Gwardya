@@ -75,14 +75,16 @@ RBAC-PROJECT/
     tech-stack.md
     roadmap.md
     design-patterns.md
-  backend/                # planned (M0–M1)
+  backend/                # M1-0 scaffold in place
     app/
-      api/                # routers + permission dependencies
       core/               # config, security, permission catalog
       db/                 # engine, session, base, seed
-      models/             # SQLAlchemy models
-      schemas/            # Pydantic I/O
-      services/           # business rules + ownership predicates
+      api/                # routers + permission dependencies (M1)
+      models/             # SQLAlchemy models (M1)
+      schemas/            # Pydantic I/O (M1)
+      services/           # business rules + ownership predicates (M1)
+    db/                   # setup.sql / setup.sh (databases + least-privilege user)
+    tests/                # pytest + real MySQL test schema
   frontend/               # planned (M2)
     src/
       api/                # fetch wrapper + refresh-on-401
@@ -92,27 +94,45 @@ RBAC-PROJECT/
 
 ## Getting started
 
-> Not runnable yet — M0 will add the backend scaffold, `.env.example`, and `db/setup.sql`.
+The backend runs inside **WSL2 (Ubuntu 24.04)**. Do not run backend commands from Windows
+PowerShell: Smart App Control blocks unsigned `pydantic_core`/`asyncmy` binaries, and a Windows
+`uv run` would rebuild `.venv` as a Windows venv.
 
-Prerequisites already verified on the development machine:
+Verified environment:
 
-- Python **3.14.5** via the `py` launcher (plus `uv` 0.12.9)
-- Node **24** / npm **11** (use `npm.cmd`; the `.ps1` wrapper is blocked by execution policy)
-- MySQL **8.0**, service `MySQL80`, running locally
+- WSL2 Ubuntu 24.04, user `merss`, systemd enabled
+- Python **3.14.x** (uv-managed) and `uv` **0.13.x** inside WSL
+- MySQL **8.0** inside WSL on `127.0.0.1:3307` (Windows `MySQL80` keeps 3306)
+- Node **24** / npm **11** on Windows (use `npm.cmd`; the `.ps1` wrapper is blocked)
 
-Planned local flow:
+Local flow:
+
+```bash
+# 1. Enter WSL (one-time: uv + MySQL are already installed)
+wsl -d Ubuntu-24.04
+cd /mnt/c/Users/merss/Documents/RBAC-PROJECT/backend
+
+# 2. Create the databases and dedicated app user (run once; needs sudo)
+bash db/setup.sh
+
+# 3. Install dependencies and run the API
+uv sync
+uv run uvicorn app.main:app --reload --port 8001
+```
+
+Then open **http://127.0.0.1:8001/docs** from Windows. Use `127.0.0.1`, not `localhost` —
+Windows resolves `localhost` to IPv6 `::1`, which is not shared with WSL in mirrored mode.
+
+Checks:
+
+```bash
+uv run ruff check .
+uv run pytest -q
+```
+
+Frontend (new terminal, on Windows):
 
 ```powershell
-# 1. Create the database and dedicated app user (run once, as root)
-& "C:\Program Files\MySQL\MySQL Server 8.0\bin\mysql.exe" -u root -p `
-  -e "source backend/db/setup.sql"
-
-# 2. Backend
-cd backend
-uv sync
-uv run uvicorn app.main:app --reload
-
-# 3. Frontend (new terminal)
 cd frontend
 npm.cmd install
 npm.cmd run dev

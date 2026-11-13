@@ -4,7 +4,7 @@ from typing import Annotated
 from fastapi import Depends, FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from sqlalchemy import text
-from sqlalchemy.ext.asyncio import AsyncSession
+from sqlalchemy.ext.asyncio import AsyncSession  # type: ignore
 
 from app.core.config import settings
 from app.db.session import engine, get_session
@@ -35,7 +35,6 @@ async def health() -> dict[str, str]:
 
 
 SessionDep = Annotated[AsyncSession, Depends(get_session)]
-
 
 @app.get("/health/db", tags=["health"])
 async def health_db(session: SessionDep) -> dict[str, str]:
