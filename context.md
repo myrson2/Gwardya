@@ -4,7 +4,9 @@
 > (source of truth) and the learning guide in `concepts.md`. This file records **what the
 > environment and code actually look like right now**, including the non-obvious gotchas.
 
-Last updated: 2026-11-12 · Milestone **M1-0 complete** (scaffold boots against real MySQL).
+Last updated: 2026-11-14 · **Backend M1 built; M1-3 is the student exercise.** The detailed
+inventory lives in [`docs/BOILERPLATE.md`](docs/BOILERPLATE.md), the exercise brief in
+[`docs/M1-3-authorization-task.md`](docs/M1-3-authorization-task.md).
 
 ---
 
@@ -13,14 +15,19 @@ Last updated: 2026-11-12 · Milestone **M1-0 complete** (scaffold boots against 
 | Area | State |
 |---|---|
 | Specs | Ratified v1.1 (`specs/`) — not modified except environment notes in `tech-stack.md` |
-| Backend scaffold | Done: config, async engine/session, FastAPI app, health routes, one test |
+| Backend M1-0 | Done: config, async engine/session, app, health routes |
+| Backend M1-1 | Done: 7 tables, naming convention, FKs/cascades, catalog, idempotent seed |
+| Backend M1-2a/2b | Done: bcrypt, identity-only JWT, refresh rotation/reuse, logout, Origin check |
+| Backend M1-3 | **Student exercise:** `require_permission`, `require_any_permission`, `scope_tickets` are `NotImplementedError` stubs |
+| Backend M1-4 / M1-5 | Done: ticket routes/status policy, admin routes/role assignment |
 | Database | MySQL 8.0.46 inside WSL2, UTC, two schemas, least-privilege app user |
-| API verified | `/health` → ok, `/health/db` → ok (real MySQL), `/docs` → 200 |
-| Quality gates | `ruff check .` clean, `pytest -q` → 1 passed |
+| API | Boots and serves `/docs`; protected routes return 500 until M1-3 is implemented |
+| Quality gates | `ruff check .` clean; `pytest -q` → 32 passed, 18 skipped (M1-3 suite) |
 | Frontend | Not started (M2) |
-| Git | **Nothing committed yet** — `.gitignore`, `backend/`, `concepts.md`, `context.md` untracked |
+| Git | Last commit `dad7c3d`; the M1-2..M1-5 implementation and `docs/` are uncommitted |
 
-M1-0 exit criteria are met: the app boots and `/health/db` proves a live database round-trip.
+M1-0/M1-1/M1-2 exit criteria are met. M1-4 and M1-5 are implemented but their acceptance
+depends on M1-3: until the guards exist, every protected route raises `NotImplementedError`.
 
 ---
 
@@ -88,35 +95,46 @@ RBAC-PROJECT/
 ├── README.md                      # status, WSL workflow, updated layout
 ├── concepts.md                    # learning guide derived from specs
 ├── context.md                     # this file
+├── docs/                          # boilerplate inventory + M1-3 exercise brief
 ├── specs/                         # ratified specs (tech-stack env notes updated)
 └── backend/
     ├── .env                       # real secrets — GITIGNORED, never commit
     ├── .env.example               # placeholders only (tracked)
     ├── .python-version            # 3.14
     ├── pyproject.toml             # deps, dev group, ruff/pytest config, package = false
-    ├── requirements.txt           # pip fallback, kept in sync with pyproject
-    ├── uv.lock                    # 44 packages
+    ├── requirements.txt           # pip fallback
+    ├── uv.lock
     ├── app/
-    │   ├── __init__.py
-    │   ├── main.py                # FastAPI app, CORS, lifespan, /health, /health/db
-    │   ├── core/
-    │   │   ├── __init__.py
-    │   │   └── config.py          # pydantic-settings, fails fast without SECRET_KEY
-    │   └── db/
-    │       ├── __init__.py
-    │       ├── base.py            # DeclarativeBase
-    │       └── session.py         # async engine + get_session (commit/rollback)
+    │   ├── main.py                # app, CORS, lifespan create_all, AppError handler, health
+    │   ├── core/                  # config, enums, catalog, security
+    │   ├── db/                    # base (naming convention), session, seed
+    │   ├── models/                # user, role, permission, ticket, refresh_token, associations
+    │   ├── schemas/               # auth, ticket, admin
+    │   ├── services/              # auth, ticket, admin, errors, ticket_scope (M1-3 stub)
+    │   └── api/
+    │       ├── deps.py            # get_current_user, verify_origin + M1-3 guard stubs
+    │       └── routes/            # auth.py, tickets.py, admin.py
     ├── db/
     │   ├── setup.sql              # databases, users, grants (password placeholder)
     │   └── setup.sh               # injects password from .env, applies SQL
     └── tests/
-        └── test_health.py         # ASGI smoke test for /health
+        ├── conftest.py            # session engine, rollback fixture, client + login helper
+        ├── test_health.py
+        ├── test_schema.py         # V-01..V-09
+        ├── test_seed.py           # V-10..V-19
+        ├── test_auth.py           # M1-2a/2b
+        └── test_authorization.py  # M1-3 acceptance matrix (skipped by default)
 ```
 
 `backend/.venv` is a **Linux** venv (`bin/`, no `Scripts/`). Do not run Windows `uv` against it.
 
-Cleanup candidate: `backend/app.py` is a leftover `uv init` stub (`print('Hello World')`) and
-can be deleted — it is not imported anywhere.
+The old layout (`app/model/`, `app/core/enum.py`, `backend/app.py`) has been removed. The only
+intentionally unfinished code is the M1-3 exercise:
+
+- `app/api/deps.py` → `require_permission`, `require_any_permission` (raise `NotImplementedError`)
+- `app/services/ticket_scope.py` → `scope_tickets` (raises `NotImplementedError`)
+
+Everything else imports, boots, seeds, and passes its tests.
 
 ---
 
@@ -183,39 +201,55 @@ wsl -d Ubuntu-24.04 --exec systemctl is-active mysql
 
 ---
 
-## 7. Verification evidence (M1-0)
+## 7. Verification evidence (M1-0 … M1-5)
 
 | Check | Result |
 |---|---|
-| `uv sync --check` | up to date, 42 packages |
-| `uv lock --check` | lockfile up to date |
 | `ruff check .` | All checks passed |
-| `pytest -q` | 1 passed |
-| `GET /health` | `{"status":"ok"}` |
-| `GET /health/db` | `{"status":"ok","database":"mysql"}` |
+| `pytest -q` | **32 passed, 18 skipped** (the skipped 18 are the M1-3 suite) |
+| `test_schema.py` | 9 passed — 7 tables, CHECK, RESTRICT/CASCADE/SET NULL, no superuser |
+| `test_seed.py` | 10 passed — counts (3/7/11/4/4), exact matrix, idempotency, bcrypt 12 |
+| `test_auth.py` | 12 passed — register/login/me, cookie flags, rotation, reuse, logout, Origin, mass assignment |
+| Seed run 1 | 7 permissions, 3 roles, 11 grants, 4 users, 4 tickets |
+| Seed run 2 | all zeros (idempotent) |
+| `GET /health` | `{"status":"ok"}` [200] |
+| `GET /health/db` | `{"status":"ok","database":"mysql"}` [200] |
 | `GET /docs` | 200 |
-| Windows → WSL | `127.0.0.1:8001` returns 200 for all three routes |
+| `GET /auth/me` | 200 with `roles:["customer"]`, `permissions:["ticket:create","ticket:read_own"]` |
+| `GET /tickets` no token | 401 |
+| `GET /tickets` with token | 500 — expected until M1-3 guards are implemented |
 | MySQL connection | `mysql 8.0.46`, `rbac_learning`, `utf8mb4_0900_ai_ci`, `time_zone=+00:00` |
 | bcrypt | `BcryptHasher().rounds == 12` |
 
 ---
 
-## 8. Next up — M1-1
+## 8. Next up — M1-3 (the exercise)
 
-Models and seed, then wire `Base.metadata.create_all` into the lifespan:
+Only the authorization core remains. Read
+[`docs/M1-3-authorization-task.md`](docs/M1-3-authorization-task.md), then implement:
 
-- `User` (single table; unique email; `hashed_password`; no `is_superuser`)
-- `Role`, `Permission`
-- `user_roles`, `role_permissions` association tables
-- `Ticket` (owner FK, status enum, timestamps)
-- `RefreshToken` (hashed token, expiry, revoked/replaced chain fields)
-- Idempotent seed: permissions catalog, `customer`/`staff`/`admin` roles, explicit
-  `role_permissions` matrix — admin holds every permission explicitly, no bypass
-- Then `Base.metadata.create_all(engine)` in `app/main.py` lifespan
-- Test: schema creation + seed idempotency against `rbac_learning_test`
+1. `app/api/deps.py` → `require_permission(code)` and `require_any_permission(*codes)`.
+   - membership in `user.permission_codes`; success returns the same `User`; failure is 403.
+   - never use `role_names`, never decode the token again, never import the catalog.
+2. `app/services/ticket_scope.py` → `scope_tickets(stmt, user)`.
+   - `ticket:read_all` → statement unchanged.
+   - otherwise add a SQL predicate `tickets.customer_id == user.id`, preserving existing where
+     clauses.
 
-After that: M1-2 auth (register/login, bcrypt cost 12, 15-min access JWT carrying only `sub`,
-rotating opaque refresh cookie), M1-3 `require_permission` guard factory + matrix tests.
+Then:
+
+```bash
+RUN_M1_3=1 uv run pytest tests/test_authorization.py -q
+uv run pytest -q
+uv run ruff check .
+```
+
+The grader covers the full matrix, 401/403/404 semantics, IDOR indistinguishability, ownership
+scoping in SQL, and role changes taking effect without re-login. Do not edit routes, services,
+schemas, or tests to make it pass.
+
+After M1-3 is green, the backend RBAC vertical slice is complete. The next milestone is M2
+(frontend + Access Inspector).
 
 ---
 
@@ -223,6 +257,11 @@ rotating opaque refresh cookie), M1-3 `require_permission` guard factory + matri
 
 | Symptom | Cause | Fix |
 |---|---|---|
+| `Seed failed (ProgrammingError)` on a fresh database | `seed.py` does not create tables; `create_all` runs in the app lifespan | Boot the API once, then run the seed |
+| MySQL reports a CHECK violation as `OperationalError` (3819), not `IntegrityError` | SQLAlchemy does not map MySQL error 3819 | Catch `DBAPIError` in tests (as `test_schema.py` does) |
+| `MissingGreenlet` after `expire_all()` + attribute access | Expired ORM objects lazy-refresh outside the async greenlet | Use `expunge_all()` and re-select, or `await session.refresh(obj)` |
+| Assigning to a collection raises `InvalidRequestError` (lazy="raise") | The relationship was never eager-loaded | Re-select with `selectinload(...)` before assigning |
+| `created_at`/`updated_at` are missing after `flush()` | Server defaults are not populated until read | `await session.refresh(obj)` after flush |
 | `localhost:8001` hangs, `127.0.0.1` works | Windows prefers `::1`; WSL IPv6 loopback not shared | Use `127.0.0.1` |
 | MySQL stuck `activating`, log says port 3306 in use | Windows `MySQL80` owns 3306 under mirrored networking | WSL MySQL stays on 3307 |
 | `Address already in use` on 8000 | Windows `postgres` | Use 8001 |
