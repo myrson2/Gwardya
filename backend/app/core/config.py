@@ -26,10 +26,12 @@ class Settings(BaseSettings):
     frontend_origin: str = "http://localhost:5173"
     access_token_minutes: int = Field(default=15, gt=0)
     refresh_token_days: int = Field(default=7, gt=0)
+    # Development-only demo credential. Seeding is refused when APP_ENV=production.
+    seed_dev_password: str = "DevPassw0rd!"
 
     @property
     def is_production(self) -> bool:
         return self.app_env == "production"
 
 
-settings = Settings()
+settings = Settings() # type:ignore
