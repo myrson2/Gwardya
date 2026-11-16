@@ -25,12 +25,6 @@ SessionDep = Annotated[AsyncSession, Depends(get_session)]
 
 _bearer = HTTPBearer(auto_error=False)
 
-STUDENT_TASK = (
-    "M1-3 student task: implement the permission check in app/api/deps.py. "
-    "See docs/M1-3-authorization-task.md."
-)
-
-
 def _unauthorized() -> HTTPException:
     return HTTPException(
         status_code=status.HTTP_401_UNAUTHORIZED,
@@ -99,7 +93,11 @@ def require_permission(
     """
 
     async def guard(user: User = Depends(get_current_user)) -> User:
-        raise NotImplementedError(STUDENT_TASK)
+        if code not in user.permission_codes:
+            raise HTTPException(
+                status_code=status.HTTP_403_FORBIDDEN, detail="Permission denied"
+            )
+        return user
 
     return guard
 
@@ -115,6 +113,12 @@ def require_any_permission(
     """
 
     async def guard(user: User = Depends(get_current_user)) -> User:
-        raise NotImplementedError(STUDENT_TASK)
+        allowed = frozenset(codes)
+        if user.permission_codes.isdisjoint(allowed):
+            raise HTTPException(
+                status_code=status.HTTP_403_FORBIDDEN,
+                detail="Insufficient permissions",
+            )
+        return user
 
     return guard

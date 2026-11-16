@@ -54,11 +54,10 @@ async def register(session: AsyncSession, payload: RegisterRequest) -> User:
         full_name=payload.full_name,
         hashed_password=await hash_password(payload.password),
     )
-    user.roles = [role]
+    user.roles.append(role)
     session.add(user)
     await session.flush()
     return user
-
 
 async def authenticate(
     session: AsyncSession, email: str, password: str

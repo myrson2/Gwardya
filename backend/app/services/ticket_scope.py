@@ -9,6 +9,7 @@ The whole point is that scoping happens **in SQL**, not by fetching a row and co
 
 from sqlalchemy import Select
 
+from app.core import PermissionCode
 from app.models import Ticket, User
 
 STUDENT_TASK = (
@@ -32,4 +33,7 @@ def scope_tickets(stmt: Select[tuple[Ticket]], user: User) -> Select[tuple[Ticke
 
     A correct implementation is roughly one ``if`` and one ``.where(...)``.
     """
-    raise NotImplementedError(STUDENT_TASK)
+
+    if PermissionCode.TICKET_READ_ALL in user.permission_codes:
+        return stmt
+    return stmt.where(Ticket.customer_id == user.id)
